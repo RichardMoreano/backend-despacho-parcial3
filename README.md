@@ -1,5 +1,4 @@
-
-# Springboot-API-REST-DESPACHO - Despliegue EKS (instrucciones en español)
+# Springboot-API-REST-DESPACHO - Despliegue EKS
 
 Pequeña guía estilo estudiante para correr local y desplegar en EKS.
 
@@ -35,4 +34,23 @@ Cómo funciona la Action:
 - Uso multi-stage para reducir el tamaño de la imagen.
 - Agrego healthcheck para que Kubernetes sepa si el pod está listo.
 - No guardes las credenciales de la BD en el repo: usa AWS Secrets Manager y monta secrets en k8s.
+
+4) Flujo de ramas y cómo activar el pipeline
+
+- Crear la rama `deploy` (solo una vez) desde main o develop:
+
+```bash
+git checkout main
+git pull
+git checkout -b deploy
+git push origin deploy
+```
+
+- Regla de trabajo recomendada:
+	- Trabajar en `main` o en `develop` (feature branches) localmente.
+	- Cuando quieras desplegar, mergear `main`/`develop` en `deploy` y push a `deploy`, o hacer PR a `deploy`.
+	- El pipeline se dispara únicamente al hacer push a `deploy`.
+
+Comentarios de estudiante:
+- Trabajo en `main`/`develop` y uso `deploy` como rama de despliegue para evitar despliegues accidentales desde branches de trabajo.
 
