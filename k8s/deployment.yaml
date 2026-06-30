@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: despacho-deployment
+  labels:
+    app: despacho
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: despacho
+  template:
+    metadata:
+      labels:
+        app: despacho
+    spec:
+      containers:
+        - name: despacho
+          image: {{ECR_REPO}}:{{IMAGE_TAG}}
+          ports:
+            - containerPort: 8081
+          # Solicito recursos para que el HPA y el scheduler funcionen mejor
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          env:
+            - name: DB_ENDPOINT
+              value: "{{RDS_ENDPOINT}}"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "despacho_db"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+          # Nota: las credenciales deben manejarse con Secrets o con IRSA + Secrets Manager
