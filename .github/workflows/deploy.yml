@@ -18,7 +18,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to ECR
@@ -27,23 +29,28 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          # Uso SHA del commit como tag
           IMAGE_TAG=${{ github.sha }}
           ECR=${{ secrets.ECR_REPO }}
           echo "Construyo la imagen y la subo a ECR: $ECR:$IMAGE_TAG"
           docker build -t $ECR:$IMAGE_TAG .
           docker push $ECR:$IMAGE_TAG
 
-      - name: Configure kubectl for EKS
-        uses: aws-actions/eks-update-kubeconfig@v2
-        with:
-          cluster-name: ${{ secrets.EKS_CLUSTER_NAME }}
-          region: ${{ secrets.AWS_REGION }}
+      - name: Configure kubectl for EKS (AWS CLI Oficial)
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
-      - name: Desplegar en EKS (actualizo la imagen)
+      - name: Desplegar DB y Arquitectura de Despacho en EKS
         env:
           ECR: ${{ secrets.ECR_REPO }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Actualizo el deployment con la nueva imagen. Si no existe, aplico los manifests.
-          kubectl set image deployment/despacho-deployment despacho=$ECR:${IMAGE_TAG} -n default || kubectl apply -f k8s/deployment.yaml
+          # 1. Desplegar los componentes de MySQL primero si existen en k8s/mysql
+          if [ -d "k8s/mysql" ]; then
+            kubectl apply -f k8s/mysql/
+          fi
+          
+          # 2. Modifica el tag de la imagen del microservicio de Despacho
+          sed -i "s|image:.*|image: ${ECR}:${IMAGE_TAG}|g" k8s/deployment.yaml
+          
+          # 3. Aplica todos los manifiestos del microservicio (Deployment, Service, HPA, Ingress)
+          kubectl apply -f k8s/
