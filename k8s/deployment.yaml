@@ -4,56 +4,72 @@ metadata:
   name: despacho-deployment
   labels:
     app: despacho
+
 spec:
   replicas: 2
+
   selector:
     matchLabels:
       app: despacho
+
   template:
     metadata:
       labels:
         app: despacho
+
     spec:
       containers:
         - name: despacho
-          image: {{ECR_REPO}}:{{IMAGE_TAG}}
+          image: 574478061268.dkr.ecr.us-east-1.amazonaws.com/backend-despacho:latest
+          imagePullPolicy: Always
+
           ports:
             - containerPort: 8081
-          # Solicito recursos para que el HPA y el scheduler funcionen mejor
+
           resources:
             requests:
-              memory: "512Mi"
               cpu: "250m"
+              memory: "512Mi"
             limits:
-              memory: "1Gi"
               cpu: "1000m"
+              memory: "1Gi"
+
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /swagger-ui.html
               port: 8081
-            initialDelaySeconds: 10
+            initialDelaySeconds: 60
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8081
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+
           env:
             - name: DB_ENDPOINT
-              value: "{{RDS_ENDPOINT}}"
+              value: mysql
+
             - name: DB_PORT
               value: "3306"
+
             - name: DB_NAME
-              value: "despacho_db"
+              value: despacho_db
+
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: db-credentials
                   key: username
+
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: db-credentials
                   key: password
-          # Nota: las credenciales deben manejarse con Secrets o con IRSA + Secrets Manager
